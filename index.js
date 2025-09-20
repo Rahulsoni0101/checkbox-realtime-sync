@@ -11,7 +11,7 @@ const httpServer = http.createServer(app);
 const io = new Server(httpServer);
 
 io.on("connection", (socket) => {
-  console.log("socket connected", socket.id);
+  console.log("socket connected with id", socket.id);
 
   socket.on("message", (message) => {
     io.emit("server-message", message);
