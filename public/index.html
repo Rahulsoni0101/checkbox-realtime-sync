@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Socket</title>
+  </head>
+  <body>
+    <p id="element-id">Hello testing sockets</p>
+    <input id="message-input" type="text" />
+    <button id="send-btn">send data to server</button>
+    <ul id="message-container">
+      <li>testing</li>
+    </ul>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+
+      const messageContainer = document.getElementById("message-container");
+
+      socket.on("server-message", (value) => {
+        const liElement = document.createElement("li");
+        liElement.innerText = value;
+        messageContainer.appendChild(liElement);
+      });
+
+      const messageInput = document.getElementById("message-input");
+      const sendButton = document.getElementById("send-btn");
+
+      sendButton.addEventListener("click", () => {
+        const inputValue = messageInput.value;
+        socket.emit("message", inputValue);
+        messageInput.value = "";
+      });
+    </script>
+  </body>
+</html>
