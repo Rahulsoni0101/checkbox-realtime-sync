@@ -3,34 +3,120 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Socket</title>
+    <title>1-to-1 Chat with Usernames</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      #message-container {
+        list-style: none;
+        padding: 0;
+      }
+      #message-container li {
+        margin: 5px 0;
+        padding: 8px;
+        border-radius: 6px;
+      }
+      .mine {
+        background: #d1ffd1;
+        text-align: right;
+      }
+      .theirs {
+        background: #d1e0ff;
+        text-align: left;
+      }
+      #user-list {
+        margin-top: 10px;
+      }
+    </style>
   </head>
   <body>
-    <p id="element-id">Hello testing sockets</p>
-    <input id="message-input" type="text" />
-    <button id="send-btn">send data to server</button>
-    <ul id="message-container">
-      <li>testing</li>
-    </ul>
+    <h2>One-to-One Chat (Usernames)</h2>
+
+    <div id="register-section">
+      <input id="username" type="text" placeholder="Enter your name" />
+      <button id="register-btn">Join</button>
+    </div>
+
+    <div id="chat-section" style="display: none">
+      <p><strong>You are logged in as:</strong> <span id="my-name"></span></p>
+
+      <label>Recipient:</label>
+      <select id="to-user"></select>
+      <br /><br />
+
+      <input id="message-input" type="text" placeholder="Type a message..." />
+      <button id="send-btn">Send</button>
+
+      <h3>Messages</h3>
+      <ul id="message-container"></ul>
+
+      <h3>Online Users</h3>
+      <ul id="user-list"></ul>
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
       const socket = io();
 
+      const registerSection = document.getElementById("register-section");
+      const chatSection = document.getElementById("chat-section");
+      const usernameInput = document.getElementById("username");
+      const registerBtn = document.getElementById("register-btn");
+      const myNameElement = document.getElementById("my-name");
+      const toUserSelect = document.getElementById("to-user");
       const messageContainer = document.getElementById("message-container");
-
-      socket.on("server-message", (value) => {
-        const liElement = document.createElement("li");
-        liElement.innerText = value;
-        messageContainer.appendChild(liElement);
-      });
-
       const messageInput = document.getElementById("message-input");
       const sendButton = document.getElementById("send-btn");
+      const userListElement = document.getElementById("user-list");
+
+      registerBtn.addEventListener("click", () => {
+        const username = usernameInput.value.trim();
+        if (!username) return alert("Enter a username");
+
+        socket.emit("register", username);
+        myNameElement.innerText = username;
+        registerSection.style.display = "none";
+        chatSection.style.display = "block";
+      });
+
+      socket.on("user-list", (users) => {
+        toUserSelect.innerHTML = "";
+        userListElement.innerHTML = "";
+        users.forEach((user) => {
+          if (user !== myNameElement.innerText) {
+            const option = document.createElement("option");
+            option.value = user;
+            option.innerText = user;
+            toUserSelect.appendChild(option);
+          }
+
+          const li = document.createElement("li");
+          li.innerText = user;
+          userListElement.appendChild(li);
+        });
+      });
+
+      socket.on("server-message", (data) => {
+        const li = document.createElement("li");
+        li.innerText = `${data.from}: ${data.message}`;
+        li.classList.add("theirs");
+        messageContainer.appendChild(li);
+      });
 
       sendButton.addEventListener("click", () => {
-        const inputValue = messageInput.value;
-        socket.emit("message", inputValue);
+        const toUser = toUserSelect.value;
+        const message = messageInput.value.trim();
+        if (!toUser || !message)
+          return alert("Select a user and enter a message");
+
+        const li = document.createElement("li");
+        li.innerText = `Me (to ${toUser}): ${message}`;
+        li.classList.add("mine");
+        messageContainer.appendChild(li);
+
+        socket.emit("private-message", { to: toUser, message });
         messageInput.value = "";
       });
     </script>
