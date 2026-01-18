@@ -6,48 +6,33 @@ const app = express();
 app.use(express.static("./public"));
 
 const httpServer = http.createServer(app);
-const io = new Server(httpServer);
+const io = new Server(httpServer, {
+  transports: ["websocket"],
+});
 
-const users = {};
+const checkboxState = {};
 
 io.on("connection", (socket) => {
-  console.log("✅ Socket connected:", socket.id);
+  io.emit("active-users", io.engine.clientsCount);
+  socket.emit("initial-state", checkboxState);
 
-  socket.on("register", (username) => {
-    users[username] = socket.id;
+  socket.on("user-joined", (username) => {
     socket.username = username;
-    console.log(`👤 User registered: ${username} (${socket.id})`);
-
-    io.emit("user-list", Object.keys(users));
+    socket.emit("enable-inputs");
   });
 
-  socket.on("private-message", ({ to, message }) => {
-    const targetSocketId = users[to];
-    if (targetSocketId) {
-      console.log(`📩 ${socket.username} → ${to}: ${message}`);
-
-      io.to(targetSocketId).emit("server-message", {
-        from: socket.username,
-        message,
-      });
-    } else {
-      socket.emit("server-message", {
-        from: "System",
-        message: `❌ User "${to}" not found.`,
-      });
-    }
+  socket.on("client-message", (element, value, username) => {
+    checkboxState[element] = value;
+    socket.broadcast.emit("server-message", element, value, username);
+    socket.emit("server-message", element, value, username);
   });
 
   socket.on("disconnect", () => {
-    if (socket.username) {
-      delete users[socket.username];
-      io.emit("user-list", Object.keys(users));
-      console.log(`❌ ${socket.username} disconnected`);
-    }
+    io.emit("active-users", io.engine.clientsCount);
   });
 });
 
 const PORT = process.env.PORT ?? 3000;
 httpServer.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
