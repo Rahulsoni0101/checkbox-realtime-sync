@@ -10,26 +10,24 @@ const io = new Server(httpServer, {
   transports: ["websocket"],
 });
 
-const checkboxState = {};
+const checkboxState = new Array(100).fill(false);
 
 io.on("connection", (socket) => {
-  io.emit("active-users", io.engine.clientsCount);
-  socket.emit("initial-state", checkboxState);
+  console.log("Connected:", socket.id);
 
-  socket.on("user-joined", (username) => {
-    socket.username = username;
-    socket.emit("enable-inputs");
-  });
+  socket.on("checkbox-update", ({ index, value }) => {
+    checkboxState[index] = value;
 
-  socket.on("client-message", (element, value, username) => {
-    checkboxState[element] = value;
-    socket.broadcast.emit("server-message", element, value, username);
-    socket.emit("server-message", element, value, username);
+    socket.broadcast.emit("state-changed");
   });
 
   socket.on("disconnect", () => {
-    io.emit("active-users", io.engine.clientsCount);
+    console.log("Disconnected:", socket.id);
   });
+});
+
+app.get("/state", (req, res) => {
+  res.json({ checkboxState });
 });
 
 const PORT = process.env.PORT ?? 3000;

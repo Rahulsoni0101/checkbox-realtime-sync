@@ -1,254 +1,62 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Realtime Checkbox Sync</title>
 
-    <style>
-      :root {
-        --glass-bg: rgba(255, 255, 255, 0.75);
-        --glass-border: rgba(255, 255, 255, 0.3);
-        --primary: #6366f1;
-      }
-
-      body {
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-        min-height: 100vh;
-        margin: 0;
-        padding: 40px;
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .container {
-        width: 100%;
-        max-width: 1000px;
-        background: var(--glass-bg);
-        backdrop-filter: blur(14px);
-        border-radius: 18px;
-        border: 1px solid var(--glass-border);
-        padding: 28px;
-        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.2);
-      }
-
-      header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 18px;
-      }
-
-      h2 {
-        margin: 0;
-        color: #111827;
-      }
-
-      .users {
-        padding: 8px 16px;
-        border-radius: 999px;
-        background: linear-gradient(135deg, #6366f1, #8b5cf6);
-        color: #fff;
-        font-weight: 600;
-      }
-
-      .layout {
-        display: grid;
-        grid-template-columns: 2fr 1fr;
-        gap: 20px;
-      }
-
-      .checkbox-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-        gap: 14px;
-      }
-
-      .checkbox-item {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 10px;
-        border-radius: 10px;
-        background: #fff;
-        transition: all 0.2s ease;
-      }
-
-      .checkbox-item:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-      }
-
-      input[type="checkbox"] {
-        width: 18px;
-        height: 18px;
-        cursor: pointer;
-      }
-
-      .activity {
-        background: #ffffff;
-        border-radius: 14px;
-        padding: 14px;
-        overflow-y: auto;
-        max-height: 400px;
-      }
-
-      .activity h3 {
-        margin-top: 0;
-        font-size: 16px;
-      }
-
-      .log {
-        font-size: 13px;
-        color: #374151;
-        margin-bottom: 6px;
-      }
-
-      /* Modal */
-      .modal {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10;
-      }
-
-      .modal-box {
-        background: #fff;
-        padding: 24px;
-        border-radius: 14px;
-        width: 320px;
-        text-align: center;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
-      }
-
-      .modal-box input {
-        width: 100%;
-        padding: 10px;
-        margin-top: 10px;
-        border-radius: 8px;
-        border: 1px solid #d1d5db;
-      }
-
-      .modal-box button {
-        margin-top: 14px;
-        width: 100%;
-        padding: 10px;
-        border-radius: 8px;
-        border: none;
-        background: var(--primary);
-        color: #fff;
-        font-weight: 600;
-        cursor: pointer;
-      }
-    </style>
+    <style></style>
   </head>
 
   <body>
-    <!-- Username Modal -->
-    <div class="modal" id="nameModal">
-      <div class="modal-box">
-        <h3>Enter your name</h3>
-        <input id="usernameInput" placeholder="Your name" />
-        <button id="joinBtn">Join</button>
-      </div>
-    </div>
-
     <div class="container">
       <header>
         <h2>Realtime Checkbox Sync</h2>
-        <div class="users">
-          👥 Active Users: <span id="users-count">0</span>
-        </div>
+        <div class="users">Active Users: <span id="users-count">0</span></div>
       </header>
-
-      <div class="layout">
-        <div id="all-checkboxes" class="checkbox-grid"></div>
-
-        <div class="activity">
-          <h3>Live Activity</h3>
-          <div id="activityLog"></div>
-        </div>
-      </div>
+      <div id="checkbox-container"></div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
       const socket = io({ transports: ["websocket"] });
-      const TOTAL_CHECKBOXES = 100;
+      const syncState = async () => {
+        const res = await fetch("/state");
+        const { checkboxState } = await res.json();
 
-      const parentElement = document.getElementById("all-checkboxes");
-      const usersCountEl = document.getElementById("users-count");
-      const activityLog = document.getElementById("activityLog");
-
-      const modal = document.getElementById("nameModal");
-      const joinBtn = document.getElementById("joinBtn");
-      const usernameInput = document.getElementById("usernameInput");
-
-      let username = null;
-
-      joinBtn.onclick = () => {
-        if (!usernameInput.value.trim()) return;
-        username = usernameInput.value.trim();
-        modal.style.display = "none";
-        socket.emit("user-joined", username);
-      };
-
-      for (let i = 0; i < TOTAL_CHECKBOXES; i++) {
-        const wrapper = document.createElement("div");
-        wrapper.className = "checkbox-item";
-
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.id = `checkbox-${i + 1}`;
-        checkbox.disabled = true;
-
-        const label = document.createElement("label");
-        label.textContent = `#${i + 1}`;
-
-        checkbox.addEventListener("change", (e) => {
-          socket.emit(
-            "client-message",
-            e.target.id,
-            e.target.checked,
-            username
-          );
-        });
-
-        wrapper.appendChild(checkbox);
-        wrapper.appendChild(label);
-        parentElement.appendChild(wrapper);
-      }
-
-      socket.on("enable-inputs", () => {
-        document
-          .querySelectorAll("input[type=checkbox]")
-          .forEach((c) => (c.disabled = false));
-      });
-
-      socket.on("server-message", (id, value, user) => {
-        const checkbox = document.getElementById(id);
-        if (checkbox) checkbox.checked = value;
-
-        const log = document.createElement("div");
-        log.className = "log";
-        log.textContent = `${user} ${value ? "checked" : "unchecked"} ${id}`;
-        activityLog.prepend(log);
-      });
-
-      socket.on("initial-state", (state) => {
-        Object.entries(state).forEach(([id, value]) => {
-          const checkbox = document.getElementById(id);
+        checkboxState.forEach((value, index) => {
+          const checkbox = document.getElementById(`checkbox-${index}`);
           if (checkbox) checkbox.checked = value;
         });
+      };
+
+      const checkboxContainer = document.getElementById("checkbox-container");
+      const TOTAL_CHECKBOXES = 100;
+
+      for (let i = 0; i < TOTAL_CHECKBOXES; i++) {
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.id = `checkbox-${i}`;
+
+        input.addEventListener("change", () => {
+          socket.emit("checkbox-update", {
+            index: i,
+            value: input.checked,
+          });
+        });
+
+        checkboxContainer.appendChild(input);
+      }
+
+      socket.on("server-message", ({ index, value }) => {
+        const checkbox = document.getElementById(`checkbox-${index}`);
+        if (checkbox) checkbox.checked = value;
       });
 
-      socket.on("active-users", (count) => {
-        usersCountEl.textContent = count;
+      syncState();
+
+      socket.on("state-changed", () => {
+        syncState();
       });
     </script>
   </body>
